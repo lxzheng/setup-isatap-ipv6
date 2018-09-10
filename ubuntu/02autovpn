@@ -16,8 +16,8 @@ LANG=en
 
 setup_ipv6()
 {
-	localip=`ifconfig  $IPV4_DEV |grep inet|awk -F":" '{print $2}'|awk '{print $1}'`
-	sit_name=`ifconfig sit1|grep IPv6-in-IPv4|awk '{print $1}'`
+	localip=`ifconfig  $IPV4_DEV |grep inet|awk -F" " '{print $2}'`
+	sit_name=`ifconfig sit1|grep POINTOPOINT|awk -F':' '{print $1}'`
 	if [ "$sit_name" = "sit1" ]; then
 		ip tunnel del ${sit_name}
 	fi
