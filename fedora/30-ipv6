@@ -1,6 +1,9 @@
 #!/bin/sh
-INTERFACE=$1
-STATUS=$2
+#自动连接VPN并启动IPV6
+#Author: Lingxaing Zheng,lxzheng@gmail.com
+
+INTERFACE=$1 # 状态发生变化的网络接口
+STATUS=$2 # 网络接口的新状态：up, down, vpn-up, vpn-down
 
 IF_ETH=eno1
 IPV4_DEV=eno1

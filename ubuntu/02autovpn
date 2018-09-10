@@ -1,0 +1,39 @@
+#!/bin/sh
+#自动连接VPN并启动IPV6
+#Author: Lingxaing Zheng,lxzheng@gmail.com
+
+INTERFACE=$1 # 状态发生变化的网络接口
+STATUS=$2 # 网络接口的新状态：up, down, vpn-up, vpn-down
+
+IF_WIFI=wlan0
+IF_ETH=eth0
+IPV4_DEV=ppp0
+VPN_NAME=xmuvpn
+ISATAP_ROUTER=210.34.219.49
+XMU_IPV6_PREFIX=2001:da8:e800:45c0:200:5efe
+
+LANG=en
+
+setup_ipv6()
+{
+	localip=`ifconfig  $IPV4_DEV |grep inet|awk -F":" '{print $2}'|awk '{print $1}'`
+	sit_name=`ifconfig sit1|grep IPv6-in-IPv4|awk '{print $1}'`
+	if [ "$sit_name" = "sit1" ]; then
+		ip tunnel del ${sit_name}
+	fi
+	ip tunnel add sit1 mode isatap remote $ISATAP_ROUTER local $localip
+	ip link set sit1 up
+	ip tunnel prl prl-default $ISATAP_ROUTER dev sit1
+	ip -6 route add default via fe80::5efe:$ISATAP_ROUTER dev sit1
+	ifconfig sit1 add $XMU_IPV6_PREFIX:$localip/64
+}
+
+if [[ "$STATUS" == "up" &&  (("$INTERFACE" == "$IF_WIFI") ||("$INTERFACE" == "$IF_ETH" )) && "$(nmcli con show --active|grep "$VPN_NAME")" == "" ]]; then
+
+        nmcli con up $VPN_NAME
+        echo "pptp vpn up"
+fi
+
+if [[ "$STATUS" == "vpn-up" ]]; then
+	setup_ipv6
+fi
