@@ -37,3 +37,7 @@ fi
 if [[ "$STATUS" == "vpn-up" ]]; then
 	setup_ipv6
 fi
+
+if [[ "$STATUS" == "vpn-down" ]]; then
+	ip tunnel del sit1
+fi
