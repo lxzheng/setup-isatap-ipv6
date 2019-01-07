@@ -5,10 +5,11 @@
 INTERFACE=$1 # 状态发生变化的网络接口
 STATUS=$2 # 网络接口的新状态：up, down, vpn-up, vpn-down
 
-IF_WIFI=wlan0
-IF_ETH=eth0
+IF_WIFI=wlp4s0
+IF_ETH=enp0s31f6
 IPV4_DEV=ppp0
-VPN_NAME=xmuvpn
+VPN_NAME=XMUVPN
+IKE_VPN=xmuikev2
 ISATAP_ROUTER=210.34.219.49
 XMU_IPV6_PREFIX=2001:da8:e800:45c0:200:5efe
 
@@ -24,18 +25,41 @@ setup_ipv6()
 	ip tunnel add sit1 mode isatap remote $ISATAP_ROUTER local $localip
 	ip link set sit1 up
 	ip tunnel prl prl-default $ISATAP_ROUTER dev sit1
-	ip -6 route add default via fe80::5efe:$ISATAP_ROUTER dev sit1
+	ip -6 route add default via fe80::5efe:$ISATAP_ROUTER dev sit1 metric 10
+	ifconfig sit1 add $XMU_IPV6_PREFIX:$localip/64
+
+}
+
+setup_ikev2_ipv6()
+{
+	localip=`ip address show dev $IF_WIFI|grep -w inet|grep \/32|awk -F' ' '{print $2}'|awk -F'/' '{print $1}'`
+	sit_name=`ifconfig sit1|grep POINTOPOINT|awk -F':' '{print $1}'`
+	if [ "$sit_name" = "sit1" ]; then
+		ip tunnel del ${sit_name}
+	fi
+	ip tunnel add sit1 mode isatap remote $ISATAP_ROUTER local $localip
+	ip link set sit1 up
+	ip tunnel prl prl-default $ISATAP_ROUTER dev sit1
+	ip -6 route add default via fe80::5efe:$ISATAP_ROUTER dev sit1 metric 10
 	ifconfig sit1 add $XMU_IPV6_PREFIX:$localip/64
 }
 
-if [[ "$STATUS" == "up" &&  (("$INTERFACE" == "$IF_WIFI") ||("$INTERFACE" == "$IF_ETH" )) && "$(nmcli con show --active|grep "$VPN_NAME")" == "" ]]; then
 
-        nmcli con up $VPN_NAME
-        echo "pptp vpn up"
-fi
+#if [[ "$STATUS" == "up" &&  (("$INTERFACE" == "$IF_WIFI") ||("$INTERFACE" == "$IF_ETH" )) && "$(nmcli con show --active|grep "$VPN_NAME")" == "" ]]; then
+#        nmcli con up $VPN_NAME
+#        echo "pptp vpn up"
+#fi
+
 
 if [[ "$STATUS" == "vpn-up" ]]; then
-	setup_ipv6
+	if [ "$(nmcli con show --active|grep "vpn"|cut -d ' ' -f 1)" == "$VPN_NAME" ]; then
+		setup_ipv6
+		echo "pptp ipv6 setup in vpn-up"|systemd-cat -p info
+	fi
+	if [ "$(nmcli con show --active|grep "vpn"|cut -d ' ' -f 1)" == "$IKE_VPN" ]; then
+		setup_ikev2_ipv6
+		echo "ikev2_ipv6 in vpn-up" |systemd-cat -p info
+	fi
 fi
 
 if [[ "$STATUS" == "vpn-down" ]]; then
